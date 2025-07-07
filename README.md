@@ -113,25 +113,94 @@ docker-compose restart web
 
 ## 📚 Conceitos Aplicados
 
-### ✅ 1. Sistema de Autenticação Robusto com Devise
+### ✅ 1. Evitando Fat Controllers (Módulo 3 - Anti-patterns)
 
 **Implementação:**
 ```ruby
-# app/models/user.rb
-class User < ApplicationRecord
-  devise :database_authenticatable, :registerable,
-         :recoverable, :rememberable, :validatable,
-         :lockable
+# app/controllers/complaints_controller.rb - Controller enxuto
+def create
+  @complaint = current_user.complaints.new(complaint_params)
+  @complaint.status = 'open'
+  
+  if @complaint.save
+    redirect_to @complaint, notice: 'Reclamação registrada com sucesso.'
+  else
+    render :new, status: :unprocessable_entity
+  end
 end
 ```
 
-**Justificativa:** O Devise foi escolhido por ser a solução mais madura e segura para autenticação em Rails. A implementação inclui funcionalidades avançadas como bloqueio de conta após tentativas falhadas (:lockable), recuperação de senha e validações robustas. Além disso, foi integrado com JWT para suporte a APIs, demonstrando conhecimento de autenticação stateless para aplicações modernas.
+**Justificativa:** O controller mantém apenas a lógica de fluxo HTTP, delegando validações e regras de negócio para o modelo. Isso evita o anti-pattern de Fat Controller ensinado no Módulo 3, mantendo os controllers focados apenas em coordenar requisições e respostas.
 
-### ✅ 2. Sistema de Autorização com CanCanCan
+### ✅ 2. Evitando Fat Models com Scopes (Módulo 3 - Anti-patterns)
 
 **Implementação:**
 ```ruby
-# app/controllers/complaints_controller.rb
+# app/models/complaint.rb - Organização com scopes
+scope :by_status, ->(status) { where(status: status) if status.present? }
+scope :by_category, ->(category) { where(category: category) if category.present? }
+scope :by_period, ->(start_date, end_date) {
+  where('created_at >= ? AND created_at <= ?', start_date, end_date) if start_date.present? && end_date.present?
+}
+```
+
+**Justificativa:** Os scopes organizam queries complexas de forma reutilizável, evitando que o modelo se torne um Fat Model com métodos excessivos. Esta abordagem segue as boas práticas do Módulo 3 para manter modelos organizados e focados.
+
+### ✅ 3. Separação de Responsabilidades com Enums (Módulo 3)
+
+**Implementação:**
+```ruby
+# app/models/complaint.rb - Type safety com enums
+enum status: {
+  open: 'Aberta',
+  analyzing: 'Em Análise',
+  in_progress: 'Em Atendimento',
+  resolved: 'Resolvida',
+  rejected: 'Rejeitada'
+}
+
+enum category: {
+  infrastructure: 'Infraestrutura',
+  lighting: 'Iluminação',
+  sanitation: 'Saneamento',
+  security: 'Segurança',
+  other: 'Outros'
+}
+```
+
+**Justificativa:** Os enums garantem type safety e encapsulam a lógica de estados, seguindo o princípio de separação de responsabilidades ensinado no Módulo 3. Eles previnem valores inválidos e centralizam a definição de estados possíveis.
+
+### ✅ 4. Background Jobs para Performance (Módulo 2 - Observer Pattern)
+
+**Implementação:**
+```ruby
+# app/controllers/complaints_controller.rb - Processamento assíncrono
+if old_status != @complaint.status
+  NotificationMailer.status_update(@complaint).deliver_later
+end
+```
+
+**Justificativa:** O uso de `deliver_later` implementa processamento assíncrono, evitando que operações lentas (envio de email) bloqueiem a resposta HTTP. Isso segue o padrão Observer ensinado no Módulo 2, onde mudanças de estado disparam ações secundárias.
+
+### ✅ 5. Validações Robustas e Integridade de Dados (Módulo 3)
+
+**Implementação:**
+```ruby
+# app/models/complaint.rb - Validações complexas
+validates :title, uniqueness: { 
+  scope: [:latitude, :longitude, :user_id], 
+  message: 'Já existe uma reclamação similar neste local' 
+}
+validates :latitude, :longitude, presence: true, numericality: true
+```
+
+**Justificativa:** As validações garantem integridade dos dados no nível do modelo, seguindo as boas práticas de separação de responsabilidades do Módulo 3. A validação de unicidade composta previne duplicatas de forma elegante.
+
+### ✅ 6. Autorização Baseada em Papéis (Módulo 3 - Separação de Responsabilidades)
+
+**Implementação:**
+```ruby
+# app/controllers/complaints_controller.rb - Controle de acesso
 def authorize_complaint
   unless current_user.admin? || current_user == @complaint.user
     redirect_to complaints_path, alert: 'Você não tem permissão para realizar esta ação.'
@@ -139,102 +208,7 @@ def authorize_complaint
 end
 ```
 
-**Justificativa:** O CanCanCan foi implementado para controlar o acesso às funcionalidades baseado em papéis de usuário. Isso garante que apenas administradores possam gerenciar todas as reclamações, enquanto usuários comuns só podem editar suas próprias reclamações. Esta abordagem segue o princípio de menor privilégio e melhora significativamente a segurança da aplicação.
-
-### ✅ 3. Interface Administrativa com Active Admin
-
-**Implementação:**
-```ruby
-# Gemfile
-gem "activeadmin"
-
-# Configuração completa em app/admin/
-# - dashboard.rb
-# - users.rb  
-# - complaints.rb
-# - admin_users.rb
-```
-
-**Justificativa:** O Active Admin foi escolhido para criar rapidamente uma interface administrativa robusta e profissional. Ele permite que administradores gerenciem todos os aspectos da aplicação sem necessidade de desenvolvimento de interfaces customizadas, acelerando o desenvolvimento e fornecendo funcionalidades avançadas como filtros, buscas e exportação de dados.
-
-### ✅ 4. Background Jobs com Action Mailer
-
-**Implementação:**
-```ruby
-# app/controllers/complaints_controller.rb
-if old_status != @complaint.status
-  NotificationMailer.status_update(@complaint).deliver_later
-end
-```
-
-**Justificativa:** O uso de `deliver_later` demonstra a implementação de processamento assíncrono para evitar que o envio de e-mails bloqueie a resposta HTTP. Isso melhora significativamente a experiência do usuário, pois as ações são executadas rapidamente enquanto os e-mails são processados em background. Esta é uma prática essencial para aplicações em produção.
-
-### ✅ 5. Validações Robustas e Active Record Scopes
-
-**Implementação:**
-```ruby
-# app/models/complaint.rb
-validates :title, uniqueness: { 
-  scope: [:latitude, :longitude, :user_id], 
-  message: 'Já existe uma reclamação similar neste local' 
-}
-
-scope :by_status, ->(status) { where(status: status) if status.present? }
-scope :by_category, ->(category) { where(category: category) if category.present? }
-```
-
-**Justificativa:** As validações implementadas garantem a integridade dos dados, incluindo uma validação complexa que previne reclamações duplicadas no mesmo local pelo mesmo usuário. Os scopes organizam as queries de forma reutilizável e legível, seguindo o princípio DRY e facilitando a manutenção do código.
-
-### ✅ 6. Uso Estratégico de Enums
-
-**Implementação:**
-```ruby
-# app/models/complaint.rb
-enum status: {
-  open: 'Aberta',
-  analyzing: 'Em Análise', 
-  in_progress: 'Em Atendimento',
-  resolved: 'Resolvida',
-  rejected: 'Rejeitada'
-}
-```
-
-**Justificativa:** Os enums foram utilizados para garantir type safety e otimização no banco de dados. Eles previnem valores inválidos, facilitam queries e tornam o código mais legível. A escolha de usar strings como valores permite melhor debugging e compatibilidade com sistemas externos.
-
-### ✅ 7. Containerização com Docker
-
-**Implementação:**
-```dockerfile
-# Dockerfile e docker-compose.yml configurados
-# Ambiente isolado e reproduzível
-# Separação de serviços (web, database)
-```
-
-**Justificativa:** A containerização com Docker garante que a aplicação rode de forma consistente em qualquer ambiente, eliminando o problema "funciona na minha máquina". Isso facilita o desenvolvimento em equipe, deployment e manutenção da aplicação. O uso do docker-compose permite orquestrar múltiplos serviços de forma simples.
-
-### ✅ 8. Testes Automatizados com RSpec
-
-**Implementação:**
-```ruby
-# Gemfile
-group :development, :test do
-  gem "rspec-rails"
-  gem "factory_bot_rails" 
-  gem "faker"
-end
-```
-
-**Justificativa:** A configuração completa de testes com RSpec, FactoryBot e Faker demonstra compromisso com qualidade de código e desenvolvimento sustentável. Os testes garantem que as funcionalidades continuem funcionando após mudanças, facilitam refatorações e servem como documentação viva do comportamento esperado da aplicação.
-
-## 🎯 Próximas Melhorias
-
-Para tornar a aplicação ainda mais robusta e seguir padrões avançados de arquitetura, as próximas implementações incluiriam:
-
-- **Service Objects** para extrair lógica de negócio dos controllers
-- **Repository Pattern** para encapsular queries complexas
-- **Interactors** para organizar fluxos de negócio
-- **Rails Engines** para modularização
-- **Ferramentas de qualidade** (RuboCop, Reek, Brakeman)
+**Justificativa:** A autorização é separada em método específico, seguindo o princípio de responsabilidade única do Módulo 3. Isso garante que apenas usuários autorizados possam modificar reclamações, mantendo a segurança da aplicação.
 
 ## 📄 Licença
 
