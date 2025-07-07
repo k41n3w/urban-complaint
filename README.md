@@ -29,8 +29,29 @@ O **Urban Complaint** é um sistema para registro e acompanhamento de reclamaç�
 ### Pré-requisitos
 - Docker
 - Docker Compose
+- Extensão Devcontainer no vscode
 
-### Configuração com Dev Container
+### Como rodar o projeto com Dev Container
+
+```bash
+# Clone o repositório
+git clone https://github.com/k41n3w/urban-complaint.git
+cd urban-complaint
+
+# Abra o VS Code
+code .
+
+# Inicie o projeto dentro do dev container
+# (VS Code vai perguntar "Reopen in Container?" - clique em sim)
+# Ou use Ctrl+Shift+P > "Dev Containers: Reopen in Container"
+
+# Depois que o Devcontainer terminar tudo inicie o servidor
+rails server -b 0.0.0.0
+
+# Acessar http://localhost:3000
+```
+
+### Configuração via Docker (Sem Devcontainer)
 
 1. Clone o repositório:
 ```bash

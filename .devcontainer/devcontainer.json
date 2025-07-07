@@ -1,0 +1,58 @@
+{
+  "name": "Urban Complaint Rails Dev",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "web",
+  "workspaceFolder": "/rails",
+  "shutdownAction": "stopCompose",
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Shopify.ruby-lsp",
+        "rails-snippets.rails-snippets",
+        "ms-vscode.vscode-json",
+        "bradlc.vscode-tailwindcss",
+        "ms-vscode.vscode-typescript-next",
+        "formulahendry.auto-rename-tag",
+        "ms-vscode.vscode-css-peek",
+        "ms-vscode.vscode-html-css-support",
+        "ckolkman.vscode-postgres"
+      ],
+      "settings": {
+        "ruby.lsp.enabledFeatures": {
+          "codeActions": true,
+          "diagnostics": true,
+          "documentHighlights": true,
+          "documentLink": true,
+          "documentSymbols": true,
+          "foldingRanges": true,
+          "formatting": true,
+          "hover": true,
+          "inlayHint": true,
+          "onTypeFormatting": true,
+          "selectionRanges": true,
+          "semanticHighlighting": true,
+          "completion": true
+        },
+        "files.associations": {
+          "*.html.erb": "erb"
+        }
+      }
+    }
+  },
+  
+  "forwardPorts": [3000, 5432],
+  "portsAttributes": {
+    "3000": {
+      "label": "Rails Server",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL"
+    }
+  },
+  
+  "postCreateCommand": "bundle install && rails db:create && rails db:migrate && rails db:seed",
+  
+  "remoteUser": "root"
+}
