@@ -210,6 +210,19 @@ end
 
 **Justificativa:** A autorização é separada em método específico, seguindo o princípio de responsabilidade única do Módulo 3. Isso garante que apenas usuários autorizados possam modificar reclamações, mantendo a segurança da aplicação.
 
+### ✅ 7. Otimização de Performance - Evitando N+1 Queries (Módulo 3 - Performance)
+
+**Implementação:**
+```ruby
+# app/controllers/complaints_controller.rb - Preload de associações
+def show
+  @comment = Comment.new
+  @comments = @complaint.comments.includes(:user).page(params[:page]).per(5)
+end
+```
+
+**Justificativa:** O uso de `includes(:user)` carrega as associações de usuário de forma eficiente em uma única query, evitando o problema N+1 que ocorreria se cada comentário fizesse uma query separada para buscar seu usuário. Esta otimização melhora significativamente a performance da aplicação, especialmente em páginas com muitos comentários.
+
 ## 📄 Licença
 
 Este projeto foi desenvolvido para fins educacionais como parte do curso de Arquitetura de Aplicações Web com Rails.
